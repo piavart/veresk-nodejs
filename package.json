@@ -1,0 +1,74 @@
+{
+  "name": "@veresk/nodejs",
+  "version": "0.0.1",
+  "description": "Remote configuration and feature flag client for Veresk in Node.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "veresk",
+    "remote-config",
+    "configuration",
+    "node"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "check:pack": "npm pack --dry-run",
+    "ci": "npm run typecheck && npm test -- --runInBand && npm run build && npm run check:pack",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piavart/veresk-nodejs.git"
+  },
+  "author": "Arseny Vorobyov <piavarts@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/piavart/veresk-nodejs/issues"
+  },
+  "homepage": "https://github.com/piavart/veresk-nodejs#readme",
+  "devDependencies": {
+    "@types/crypto-js": "^4.1.1",
+    "@types/jest": "30.0.0",
+    "@types/node": "25.5.0",
+    "@swc/core": "1.15.18",
+    "@swc/jest": "0.2.39",
+    "@typescript-eslint/eslint-plugin": "^4.31.2",
+    "@typescript-eslint/parser": "^4.31.2",
+    "axios-mock-adapter": "2.1.0",
+    "eslint": "^7.32.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "jest": "30.3.0",
+    "prettier": "^2.4.1",
+    "ts-node": "^10.2.1",
+    "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "crypto-js": "^4.2.0"
+  }
+}

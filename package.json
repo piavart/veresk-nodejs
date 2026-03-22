@@ -1,5 +1,5 @@
 {
-  "name": "@veresk/nodejs",
+  "name": "@veresk-tool/nodejs",
   "version": "0.0.1",
   "description": "Remote configuration and feature flag client for Veresk in Node.js",
   "main": "dist/index.js",
@@ -51,11 +51,11 @@
   },
   "homepage": "https://github.com/piavart/veresk-nodejs#readme",
   "devDependencies": {
-    "@types/crypto-js": "^4.1.1",
-    "@types/jest": "30.0.0",
-    "@types/node": "25.5.0",
     "@swc/core": "1.15.18",
     "@swc/jest": "0.2.39",
+    "@types/crypto-js": "^4.2.2",
+    "@types/jest": "30.0.0",
+    "@types/node": "25.5.0",
     "@typescript-eslint/eslint-plugin": "^4.31.2",
     "@typescript-eslint/parser": "^4.31.2",
     "axios-mock-adapter": "2.1.0",

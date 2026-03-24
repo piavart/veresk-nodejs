@@ -1,5 +1,5 @@
 export const EventName = {
-  SettingUpdated: 'setting-updated' as const,
+  FileUpdated: 'file-updated' as const,
   Error: 'error' as const,
   ManifestFetched: 'manifest-fetched' as const,
 };

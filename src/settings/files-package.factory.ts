@@ -1,10 +1,10 @@
-import { ISettingsPackage } from './types/settings-package.interface';
-import { SettingsPackage } from './types/settings-package';
-import { ManifestSettingsPackage } from './types/manifest-settings-package';
-import { MockSettingsPackage } from './types/mock-settings-package';
+import { IFilesPackage } from './types/files-package.interface';
+import { FilesPackage } from './types/files-package';
+import { ManifestFilesPackage } from './types/manifest-files-package';
+import { MockFilesPackage } from './types/mock-files-package';
 import { ILog } from '../interfaces';
 
-export class SettingsPackageFactory {
+export class FilesPackageFactory {
   constructor(protected readonly consumer: string) {}
 
   create(
@@ -15,9 +15,9 @@ export class SettingsPackageFactory {
     consumer: string,
     encryptSecret: string,
     log: ILog,
-  ): ISettingsPackage {
+  ): IFilesPackage {
     if (this.consumer === consumer) {
-      return new SettingsPackage(
+      return new FilesPackage(
         cdnUrls,
         fetchRetryCount,
         fetchTimeout,
@@ -28,7 +28,7 @@ export class SettingsPackageFactory {
       );
     }
 
-    return new ManifestSettingsPackage(
+    return new ManifestFilesPackage(
       cdnUrls,
       fetchRetryCount,
       fetchTimeout,
@@ -48,7 +48,7 @@ export class SettingsPackageFactory {
     log: ILog,
     dataStubs: Record<string, any>,
   ) {
-    return new MockSettingsPackage(
+    return new MockFilesPackage(
       cdnUrls,
       fetchRetryCount,
       fetchTimeout,

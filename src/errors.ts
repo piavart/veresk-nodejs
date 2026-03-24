@@ -6,25 +6,25 @@ export class ManifestNotFoundError extends Error {
   }
 }
 
-export class UnexpectedSettingError extends Error {
+export class UnexpectedFileError extends Error {
   constructor(name: string) {
     super('');
-    this.message = `Unexpected setting with name ${name}`;
+    this.message = `Unexpected file with name ${name}`;
   }
 }
 
-export class FetchSettingError extends Error {
+export class FetchFileError extends Error {
   constructor(uri: string, stack: string | undefined) {
     super('');
-    this.message = `Fetch setting error: ${uri}`;
+    this.message = `Fetch file error: ${uri}`;
     this.stack = stack;
   }
 }
 
-export class DecryptSettingError extends Error {
-  constructor(settingName: string, stack: string | undefined) {
+export class DecryptFileError extends Error {
+  constructor(fileName: string, stack: string | undefined) {
     super('');
-    this.message = `Decrypt setting error: ${settingName}`;
+    this.message = `Decrypt file error: ${fileName}`;
     this.stack = stack;
   }
 }

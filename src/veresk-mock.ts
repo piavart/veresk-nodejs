@@ -21,7 +21,7 @@ export class VereskMock extends Veresk {
   }
 
   protected create(consumer: string) {
-    return this.settingsPackageFactory.createMock(
+    return this.filesPackageFactory.createMock(
       this.cdnUrls,
       this.fetchRetryCount,
       this.fetchTimeout,

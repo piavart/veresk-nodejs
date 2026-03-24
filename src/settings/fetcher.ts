@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { CdnUrlsProvider } from './cdn-urls.provider';
 import { TManifest } from '../interfaces';
-import { FetchSettingError } from '../errors';
+import { FetchFileError } from '../errors';
 
 export class FetchError extends Error {
   constructor(
@@ -75,7 +75,7 @@ export class Fetcher {
     try {
       return await this.fetchWithRetry(path, {});
     } catch (e: any) {
-      throw new FetchSettingError(e.url, e.stack);
+      throw new FetchFileError(e.url, e.stack);
     }
   }
 

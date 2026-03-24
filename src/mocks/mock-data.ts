@@ -11,7 +11,7 @@ export const manifest: { etag: string; data: TManifest } = {
       name: 'exampleSingleton',
       key: '/default/content/exampleSingleton',
       size: 14,
-      etag: 'etagExampleSingletonSetting',
+      etag: 'etagExampleSingletonFile',
       encrypt: false,
     },
     {
@@ -25,7 +25,7 @@ export const manifest: { etag: string; data: TManifest } = {
       name: 'exampleArray',
       key: '/default/content/exampleArray',
       size: 14,
-      etag: 'etagExampleArraySetting',
+      etag: 'etagExampleArrayFile',
       encrypt: false,
     },
     {
@@ -38,8 +38,8 @@ export const manifest: { etag: string; data: TManifest } = {
   ],
 };
 
-export const exampleSingletonSetting = {
-  etag: 'etagExampleSingletonSetting',
+export const exampleSingletonFile = {
+  etag: 'etagExampleSingletonFile',
   data: {
     exampleField: 'example value',
     deepField: {
@@ -48,8 +48,8 @@ export const exampleSingletonSetting = {
   },
 };
 
-export const exampleRetrySetting = {
-  etag: 'etagExampleRetrySetting',
+export const exampleRetryFile = {
+  etag: 'etagExampleRetryFile',
   data: {
     exampleField: 'example value',
     deepField: {
@@ -58,8 +58,8 @@ export const exampleRetrySetting = {
   },
 };
 
-export const exampleArraySetting = {
-  etag: 'etagExampleArraySetting',
+export const exampleArrayFile = {
+  etag: 'etagExampleArrayFile',
   data: [
     {
       name: 'John Snow',
@@ -80,7 +80,7 @@ export const exampleArraySetting = {
 };
 
 const ectyptedContent = AES.encrypt(
-  JSON.stringify(exampleArraySetting.data),
+  JSON.stringify(exampleArrayFile.data),
   ENCRYPT_SECRET,
 ).toString();
 
@@ -93,8 +93,8 @@ function manifestMock(mock: MockAdapter, cdnUrls: string[]) {
 function exampleSingletonMock(mock: MockAdapter, cdnUrls: string[]) {
   return mock
     .onGet(`${cdnUrls[0]}/default/content/exampleSingleton`)
-    .reply(200, exampleSingletonSetting.data, {
-      etag: exampleSingletonSetting.etag,
+    .reply(200, exampleSingletonFile.data, {
+      etag: exampleSingletonFile.etag,
     });
 }
 
@@ -104,16 +104,16 @@ function exampleRetryMock(mock: MockAdapter, cdnUrls: string[]) {
     .onGet(url)
     .replyOnce(500)
     .onGet(url)
-    .reply(200, exampleRetrySetting.data, {
-      etag: exampleRetrySetting.etag,
+    .reply(200, exampleRetryFile.data, {
+      etag: exampleRetryFile.etag,
     });
 }
 
 function exampleArrayMock(mock: MockAdapter, cdnUrls: string[]) {
   return mock
     .onGet(`${cdnUrls[0]}/default/content/exampleArray`)
-    .reply(200, exampleArraySetting.data, {
-      etag: exampleArraySetting.etag,
+    .reply(200, exampleArrayFile.data, {
+      etag: exampleArrayFile.etag,
     });
 }
 
@@ -121,7 +121,7 @@ function encryptedConfigMock(mock: MockAdapter, cdnUrls: string[]) {
   return mock
     .onGet(`${cdnUrls[0]}/default/content/encryptedConfig`)
     .reply(200, ectyptedContent, {
-      etag: exampleArraySetting.etag,
+      etag: exampleArrayFile.etag,
     });
 }
 

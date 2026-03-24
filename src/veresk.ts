@@ -1,26 +1,25 @@
 import {
   ConfigureError,
-  FetchSettingError,
+  FetchFileError,
   ManifestNotFoundError,
 } from './errors';
 import { EventEmitter } from 'events';
 import {
   TVereskOptions,
-  SettingType,
   ILog,
-  TUpdateSettingEventData,
+  TUpdateFileEventData,
   TEmittedVereskError,
   TManifestFetchedEventData,
 } from './interfaces';
-import { SettingsPackageFactory } from './settings/settings-package.factory';
-import { ISettingsPackage } from './settings/types/settings-package.interface';
+import { FilesPackageFactory } from './settings/files-package.factory';
+import { IFilesPackage } from './settings/types/files-package.interface';
 import { EventName, FETCH_TIMEOUT_MS } from './constants';
 import { findInCollection, filterCollection } from './utils/matchers';
 
 export interface Veresk {
   on(
-    event: typeof EventName.SettingUpdated,
-    listener: (data: TUpdateSettingEventData) => void,
+    event: typeof EventName.FileUpdated,
+    listener: (data: TUpdateFileEventData) => void,
   ): this;
   on(
     event: typeof EventName.Error,
@@ -31,6 +30,15 @@ export interface Veresk {
     listener: (data: TManifestFetchedEventData) => void,
   ): this;
 }
+
+type TCollectionFilter<T> = Partial<T>;
+type TCollectionMatcher<T> = TCollectionFilter<T> | ((item: T) => boolean);
+type TListItem<T extends unknown[]> = T[number];
+type TListOptions<T extends unknown[]> = {
+  consumer?: string;
+  filter?: TCollectionFilter<TListItem<T>>;
+  find?: TCollectionMatcher<TListItem<T>>;
+};
 
 export class Veresk extends EventEmitter {
   protected readonly expireMs: number;
@@ -45,8 +53,8 @@ export class Veresk extends EventEmitter {
   protected reloadManifestInterval?: NodeJS.Timeout;
   protected readonly log: ILog;
 
-  protected readonly settingsPackageFactory: SettingsPackageFactory;
-  protected readonly settingsPackages = new Map<string, ISettingsPackage>();
+  protected readonly filesPackageFactory: FilesPackageFactory;
+  protected readonly filesPackages = new Map<string, IFilesPackage>();
 
   constructor(options: TVereskOptions) {
     super();
@@ -71,15 +79,15 @@ export class Veresk extends EventEmitter {
     this.encryptSecret = options.encryptSecret || '';
     this.log = options.log || console;
 
-    this.settingsPackageFactory = new SettingsPackageFactory(this.consumer);
+    this.filesPackageFactory = new FilesPackageFactory(this.consumer);
     this.set(this.consumer);
 
     this.log.log(
       `Veresk initialized: expireMs: ${
         this.expireMs
-      } cdnUrls: ${this.cdnUrls.join(' ,')} version: ${this.version} consumer: ${
-        this.consumer
-      }`,
+      } cdnUrls: ${this.cdnUrls.join(' ,')} version: ${
+        this.version
+      } consumer: ${this.consumer}`,
       `(${this.constructor.name})`,
     );
   }
@@ -94,8 +102,8 @@ export class Veresk extends EventEmitter {
   protected async update() {
     try {
       const promises: Promise<void>[] = [];
-      for (const settingsPackage of this.settingsPackages.values()) {
-        promises.push(settingsPackage.update());
+      for (const filesPackage of this.filesPackages.values()) {
+        promises.push(filesPackage.update());
       }
       await Promise.all(promises);
     } catch (err: unknown) {
@@ -103,7 +111,7 @@ export class Veresk extends EventEmitter {
 
       if (
         err instanceof ManifestNotFoundError ||
-        err instanceof FetchSettingError
+        err instanceof FetchFileError
       ) {
         this.emit(EventName.Error, err);
       }
@@ -115,10 +123,10 @@ export class Veresk extends EventEmitter {
       clearInterval(this.reloadManifestInterval);
     }
     this.removeAllListeners();
-    for (const settingsPackage of this.settingsPackages.values()) {
-      settingsPackage.reset();
+    for (const filesPackage of this.filesPackages.values()) {
+      filesPackage.reset();
     }
-    this.settingsPackages.clear();
+    this.filesPackages.clear();
   }
 
   async fetchManifest(consumer: string) {
@@ -127,168 +135,183 @@ export class Veresk extends EventEmitter {
   }
 
   getManifest(consumer: string) {
-    const settingsPackage = this.get(consumer);
+    const filesPackage = this.get(consumer);
 
     return {
-      etag: settingsPackage.manifest.etag,
-      manifest: settingsPackage.manifest.data,
-      contentUrls: settingsPackage.contentUrls,
+      etag: filesPackage.manifest.etag,
+      manifest: filesPackage.manifest.data,
+      contentUrls: filesPackage.contentUrls,
     };
   }
 
-  async fetchSetting<T = any>(
-    name: string,
-    options: {
-      consumer?: string;
-      filter?: undefined;
-      find?: undefined;
-      type: SettingType.Singleton;
-    },
-  ): Promise<T>;
-  async fetchSetting<T = any>(
-    name: string,
-    options: {
-      consumer?: string;
-      filter?: Partial<T>;
-      find: Partial<T>;
-      type?: SettingType.List;
-    },
-  ): Promise<T>;
-  async fetchSetting<T = any>(
-    name: string,
-    options: {
-      consumer?: string;
-      filter?: Partial<T>;
-      find: (item: T) => boolean;
-      type?: SettingType.List;
-    },
-  ): Promise<T>;
-  async fetchSetting<T = any>(
+  async fetchContent<T = any>(
     name: string,
     options?: {
       consumer?: string;
-      filter?: Partial<T>;
-      find?: Partial<T>;
-      type?: SettingType;
+      filter?: undefined;
+      find?: undefined;
+    },
+  ): Promise<T>;
+  async fetchContent<T = any>(
+    name: string,
+    options: {
+      consumer?: string;
+      filter?: TCollectionFilter<T>;
+      find: TCollectionMatcher<T>;
+    },
+  ): Promise<T>;
+  async fetchContent<T = any>(
+    name: string,
+    options: {
+      consumer?: string;
+      filter: TCollectionFilter<T>;
+      find?: undefined;
     },
   ): Promise<T[]>;
-  async fetchSetting<T = any>(
+  async fetchContent<T = any>(
     name: string,
     options: {
       consumer?: string;
-      filter?: Partial<T>;
-      find?: Partial<T>;
-      type?: SettingType;
+      filter?: TCollectionFilter<T>;
+      find?: TCollectionMatcher<T>;
     } = {},
   ) {
-    const { consumer = this.consumer } = options;
+    const { consumer = this.consumer, filter, find } = options;
 
     await this.loadIfNeed(consumer);
-    return this.getSetting(name, options);
-  }
-
-  getSetting<T = any>(
-    name: string,
-    options: {
-      consumer?: string;
-      filter?: undefined;
-      find?: undefined;
-      type: SettingType.Singleton;
-    },
-  ): T;
-  getSetting<T = any>(
-    name: string,
-    options: {
-      consumer?: string;
-      filter?: Partial<T>;
-      find: Partial<T>;
-      type?: SettingType.List;
-    },
-  ): T;
-  getSetting<T = any>(
-    name: string,
-    options: {
-      consumer?: string;
-      filter?: Partial<T>;
-      find: (item: T) => boolean;
-      type?: SettingType.List;
-    },
-  ): T;
-  getSetting<T = any>(
-    name: string,
-    options?: {
-      consumer?: string;
-      filter?: Partial<T>;
-      find?: Partial<T>;
-      type?: SettingType;
-    },
-  ): T[];
-  getSetting<T = any>(
-    name: string,
-    options: {
-      consumer?: string;
-      filter?: Partial<T>;
-      find?: Partial<T>;
-      type?: SettingType;
-    } = {},
-  ) {
-    const {
-      consumer = this.consumer,
-      find,
+    const listOptions = {
+      consumer,
       filter,
-      type = SettingType.List,
-    } = options;
+      find,
+    } as TListOptions<T[]>;
 
-    const settingsPackage = this.get(consumer);
-    let setting = settingsPackage.get(name);
-    const isList = Array.isArray(setting);
-
-    if (type === SettingType.List && !isList) {
-      throw new Error(`(Veresk) setting ${name} expected to be a list`);
-    }
-
-    if (type === SettingType.Singleton && isList) {
-      throw new Error(`(Veresk) setting ${name} expected to be a singleton`);
-    }
-
-    if (!Array.isArray(setting)) {
-      return setting;
+    if (find) {
+      return this.getAsListOrThrowInternal<T[]>(name, listOptions);
     }
 
     if (filter) {
-      setting = filterCollection(setting, filter);
+      return this.getAsListInternal<T[]>(name, listOptions);
     }
 
-    if (find) {
-      setting = findInCollection(setting, find);
-
-      if (!setting) {
-        throw new Error(
-          `could not find setting ${name} with find params ${JSON.stringify(
-            find,
-          )}`,
-        );
-      }
-    }
-
-    return setting;
+    return this.getContent<T>(name, consumer);
   }
 
-  /**
-   * @description get singleton setting
-   */
-  getSingleton<T extends Record<string, any> = Record<string, any>>(
+  public getAsList<T extends unknown[]>(
+    name: string,
+    options?: {
+      consumer?: string;
+      filter?: undefined;
+      find?: undefined;
+    },
+  ): T;
+  public getAsList<T extends unknown[]>(
     name: string,
     options: {
       consumer?: string;
-    } = {},
-  ): T {
-    const { consumer = this.consumer } = options;
+      filter: TCollectionFilter<TListItem<T>>;
+      find?: undefined;
+    },
+  ): T;
+  public getAsList<T extends unknown[]>(
+    name: string,
+    options: {
+      consumer?: string;
+      filter?: TCollectionFilter<TListItem<T>>;
+      find: TCollectionMatcher<TListItem<T>>;
+    },
+  ): TListItem<T> | undefined;
+  public getAsList<T extends unknown[]>(
+    name: string,
+    options: TListOptions<T> = {},
+  ): T | TListItem<T> | undefined {
+    return this.getAsListInternal(name, options);
+  }
 
-    return this.getSetting<T>(name, {
-      consumer,
-      type: SettingType.Singleton,
-    });
+  public getAsListOrThrow<T extends unknown[]>(
+    name: string,
+    options?: {
+      consumer?: string;
+      filter?: undefined;
+      find?: undefined;
+    },
+  ): T;
+  public getAsListOrThrow<T extends unknown[]>(
+    name: string,
+    options: {
+      consumer?: string;
+      filter: TCollectionFilter<TListItem<T>>;
+      find?: undefined;
+    },
+  ): T;
+  public getAsListOrThrow<T extends unknown[]>(
+    name: string,
+    options: {
+      consumer?: string;
+      filter?: TCollectionFilter<TListItem<T>>;
+      find: TCollectionMatcher<TListItem<T>>;
+    },
+  ): TListItem<T>;
+  public getAsListOrThrow<T extends unknown[]>(
+    name: string,
+    options: TListOptions<T> = {},
+  ): T | TListItem<T> {
+    return this.getAsListOrThrowInternal(name, options);
+  }
+
+  public getContent<T = any>(name: string, consumer = this.consumer): T {
+    const filesPackage = this.get(consumer);
+    return filesPackage.get(name).data;
+  }
+
+  private getFile<T = any>(name: string, consumer = this.consumer) {
+    const filesPackage = this.get(consumer);
+    return filesPackage.get<T>(name);
+  }
+
+  private getAsListInternal<T extends unknown[]>(
+    name: string,
+    options: TListOptions<T> = {},
+  ): T | TListItem<T> | undefined {
+    const data = this.getListContent<T>(name, options.consumer);
+    const filtered = options.filter
+      ? filterCollection(data, options.filter)
+      : data;
+
+    if (options.find) {
+      return findInCollection(filtered, options.find);
+    }
+
+    return filtered as T;
+  }
+
+  private getAsListOrThrowInternal<T extends unknown[]>(
+    name: string,
+    options: TListOptions<T> = {},
+  ): T | TListItem<T> {
+    const result = this.getAsListInternal(name, options);
+
+    if (options.find && result === undefined) {
+      throw new Error(
+        `(Veresk) could not find item in "${name}" with matcher ${this.stringifyMatcher(
+          options.find,
+        )}`,
+      );
+    }
+
+    return result as T | TListItem<T>;
+  }
+
+  private getListContent<T extends unknown[]>(
+    name: string,
+    consumer = this.consumer,
+  ): T {
+    const file = this.getFile<T>(name, consumer);
+
+    if (!Array.isArray(file.data)) {
+      throw new Error(`(Veresk) invalid file content. Must be a list.`);
+    }
+
+    return file.data as T;
   }
 
   private async loadIfNeed(consumer: string) {
@@ -296,47 +319,36 @@ export class Veresk extends EventEmitter {
       return;
     }
 
-    const settingsPackage = this.create(consumer);
-    await settingsPackage.update();
-    settingsPackage.on(EventName.ManifestFetched, (data) =>
-      this.emit(EventName.ManifestFetched, data),
-    );
+    const filesPackage = this.create(consumer);
+    await filesPackage.update();
 
-    this.settingsPackages.set(
-      this.key(this.version, consumer),
-      settingsPackage,
-    );
+    this.filesPackages.set(this.key(this.version, consumer), filesPackage);
   }
 
   protected has(consumer: string) {
-    return this.settingsPackages.has(this.key(this.version, consumer));
+    return this.filesPackages.has(this.key(this.version, consumer));
   }
 
   protected get(consumer: string) {
-    const settingsPackage = this.settingsPackages.get(
+    const filesPackage = this.filesPackages.get(
       this.key(this.version, consumer),
     );
 
-    if (!settingsPackage) {
-      throw new Error(
-        `could not find setting for ${this.version}, ${consumer}`,
-      );
+    if (!filesPackage) {
+      throw new Error(`could not find file for ${this.version}, ${consumer}`);
     }
 
-    return settingsPackage;
+    return filesPackage;
   }
 
   protected set(consumer: string) {
-    const settingsPackage = this.create(consumer);
+    const filesPackage = this.create(consumer);
 
-    this.settingsPackages.set(
-      this.key(this.version, consumer),
-      settingsPackage,
-    );
+    this.filesPackages.set(this.key(this.version, consumer), filesPackage);
   }
 
   protected create(consumer: string) {
-    const settingsPackage = this.settingsPackageFactory.create(
+    const filesPackage = this.filesPackageFactory.create(
       this.cdnUrls,
       this.fetchRetryCount,
       this.fetchTimeout,
@@ -346,14 +358,25 @@ export class Veresk extends EventEmitter {
       this.log,
     );
 
-    settingsPackage.on(EventName.SettingUpdated, (data) =>
-      this.emit(EventName.SettingUpdated, data),
+    filesPackage.on(EventName.FileUpdated, (data) =>
+      this.emit(EventName.FileUpdated, data),
+    );
+    filesPackage.on(EventName.ManifestFetched, (data) =>
+      this.emit(EventName.ManifestFetched, data),
     );
 
-    return settingsPackage;
+    return filesPackage;
   }
 
   protected key(version: string, consumer: string) {
-    return `${version}${consumer}`;
+    return `${version}:${consumer}`;
+  }
+
+  private stringifyMatcher(matcher: unknown) {
+    if (typeof matcher === 'function') {
+      return '[function matcher]';
+    }
+
+    return JSON.stringify(matcher);
   }
 }

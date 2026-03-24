@@ -3,19 +3,30 @@ import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { AES } from 'crypto-js';
 import {
-  exampleArraySetting,
-  exampleRetrySetting,
-  exampleSingletonSetting,
+  ENCRYPT_SECRET,
+  exampleArrayFile,
+  exampleRetryFile,
+  exampleSingletonFile,
   manifest,
+  mockConfigs,
 } from './mocks/mock-data';
-import { SettingType } from './interfaces';
-import { mockConfigs, ENCRYPT_SECRET } from './mocks/mock-data';
 
 const cdnUrls = ['http://cdn.example.com'];
 
+type TExampleArray = typeof exampleArrayFile.data;
+type TExampleArrayItem = TExampleArray[number];
+
+function createLog() {
+  return {
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  };
+}
+
 describe('Veresk library', () => {
   let veresk: Veresk;
-  let mock: any;
+  let mock: MockAdapter;
 
   beforeAll(() => {
     mock = new MockAdapter(axios as any);
@@ -29,6 +40,7 @@ describe('Veresk library', () => {
       version: 'default',
       consumer: 'common',
       encryptSecret: ENCRYPT_SECRET,
+      log: createLog(),
     });
     await veresk.init();
   });
@@ -44,99 +56,101 @@ describe('Veresk library', () => {
 
   it('fetchManifest', async () => {
     const manifestInfo = await veresk.fetchManifest('common');
+
     expect(Array.isArray(manifestInfo.manifest)).toEqual(true);
     expect(manifestInfo.manifest.length).toEqual(manifest.data.length);
     expect(manifestInfo.etag).toEqual(manifest.etag);
   });
 
-  it('getManifest', async () => {
+  it('getManifest', () => {
     const manifestInfo = veresk.getManifest('common');
+
     expect(Array.isArray(manifestInfo.manifest)).toEqual(true);
     expect(manifestInfo.manifest.length).toEqual(manifest.data.length);
     expect(manifestInfo.etag).toEqual(manifest.etag);
   });
 
-  it('fetchSetting: singleton', async () => {
-    const exampleSingleton = await veresk.fetchSetting<
-      typeof exampleSingletonSetting.data
-    >('exampleSingleton', { type: SettingType.Singleton });
+  it('fetchContent: singleton', async () => {
+    const exampleSingleton = await veresk.fetchContent<
+      typeof exampleSingletonFile.data
+    >('exampleSingleton');
+
     expect(exampleSingleton.exampleField).toEqual(
-      exampleSingletonSetting.data.exampleField,
+      exampleSingletonFile.data.exampleField,
     );
   });
 
-  it('fetchSetting: array', async () => {
-    const exampleArray = await veresk.fetchSetting<
-      typeof exampleArraySetting.data[0]
-    >('exampleArray');
+  it('fetchContent: array', async () => {
+    const exampleArray = await veresk.fetchContent<TExampleArray>(
+      'exampleArray',
+    );
 
     expect(Array.isArray(exampleArray)).toEqual(true);
-    expect(exampleArray.length).toEqual(exampleArraySetting.data.length);
+    expect(exampleArray.length).toEqual(exampleArrayFile.data.length);
   });
 
-  it('fetchSetting: array with type', async () => {
-    const exampleArray = await veresk.fetchSetting<
-      typeof exampleArraySetting.data[0]
-    >('exampleArray', { type: SettingType.List });
+  it('fetchContent: array with find', async () => {
+    const person = await veresk.fetchContent<TExampleArrayItem>(
+      'exampleArray',
+      {
+        find: { name: 'John Snow' },
+      },
+    );
 
-    expect(Array.isArray(exampleArray)).toEqual(true);
-    expect(exampleArray.length).toEqual(exampleArraySetting.data.length);
-  });
-
-  it('fetchSetting: array with find', async () => {
-    const person = await veresk.fetchSetting<
-      typeof exampleArraySetting.data[0]
-    >('exampleArray', {
-      find: { name: 'John Snow' },
-    });
     expect(Array.isArray(person)).toEqual(false);
     expect(person.name).toEqual('John Snow');
     expect(person.bastard).toEqual(true);
     expect(person.dwarf).toEqual(false);
 
-    const person2 = await veresk.fetchSetting<
-      typeof exampleArraySetting.data[0]
-    >('exampleArray', {
-      find: { dwarf: true },
-    });
+    const person2 = await veresk.fetchContent<TExampleArrayItem>(
+      'exampleArray',
+      {
+        find: { dwarf: true },
+      },
+    );
+
     expect(Array.isArray(person2)).toEqual(false);
     expect(person2.name).toEqual('Tyrion Lannister');
     expect(person2.bastard).toEqual(false);
     expect(person2.dwarf).toEqual(true);
   });
 
-  it('fetchSetting: array with find as function', async () => {
-    const person = await veresk.fetchSetting<
-      typeof exampleArraySetting.data[0]
-    >('exampleArray', {
-      find: ((item: typeof exampleArraySetting.data[0]) => {
-        return item.name === 'Wrong Name' || item.name === 'Theon Greyjoy';
-      }) as (item: typeof exampleArraySetting.data[0]) => boolean,
-    });
+  it('fetchContent: array with find as function', async () => {
+    const person = await veresk.fetchContent<TExampleArrayItem>(
+      'exampleArray',
+      {
+        find: (item: TExampleArrayItem) =>
+          item.name === 'Wrong Name' || item.name === 'Theon Greyjoy',
+      },
+    );
+
     expect(Array.isArray(person)).toEqual(false);
     expect(person.name).toEqual('Theon Greyjoy');
     expect(person.bastard).toEqual(false);
     expect(person.dwarf).toEqual(false);
 
-    const person2 = await veresk.fetchSetting<
-      typeof exampleArraySetting.data[0]
-    >('exampleArray', {
-      find: ((item: typeof exampleArraySetting.data[0]) => {
-        return item.dwarf === false && item.bastard === false;
-      }) as (item: typeof exampleArraySetting.data[0]) => boolean,
-    });
+    const person2 = await veresk.fetchContent<TExampleArrayItem>(
+      'exampleArray',
+      {
+        find: (item: TExampleArrayItem) =>
+          item.dwarf === false && item.bastard === false,
+      },
+    );
+
     expect(Array.isArray(person2)).toEqual(false);
     expect(person2.name).toEqual('Theon Greyjoy');
     expect(person2.bastard).toEqual(false);
     expect(person2.dwarf).toEqual(false);
   });
 
-  it('fetchSetting: array with filter', async () => {
-    const persons = await veresk.fetchSetting<
-      typeof exampleArraySetting.data[0]
-    >('exampleArray', {
-      filter: { bastard: false },
-    });
+  it('fetchContent: array with filter', async () => {
+    const persons = await veresk.fetchContent<TExampleArrayItem>(
+      'exampleArray',
+      {
+        filter: { bastard: false },
+      },
+    );
+
     expect(Array.isArray(persons)).toEqual(true);
     expect(persons.length).toEqual(2);
     expect(persons[0].name).toEqual('Theon Greyjoy');
@@ -144,71 +158,77 @@ describe('Veresk library', () => {
     expect(persons[0].dwarf).toEqual(false);
   });
 
-  it('fetchSetting: array with filter and find', async () => {
-    const person = await veresk.fetchSetting<
-      typeof exampleArraySetting.data[0]
-    >('exampleArray', {
-      filter: { bastard: false },
-      find: { dwarf: false },
-    });
+  it('fetchContent: array with filter and find', async () => {
+    const person = await veresk.fetchContent<TExampleArrayItem>(
+      'exampleArray',
+      {
+        filter: { bastard: false },
+        find: { dwarf: false },
+      },
+    );
+
     expect(person).toBeTruthy();
     expect(Array.isArray(person)).toEqual(false);
-    expect(person?.name).toEqual('Theon Greyjoy');
-    expect(person?.bastard).toEqual(false);
-    expect(person?.dwarf).toEqual(false);
+    expect(person.name).toEqual('Theon Greyjoy');
+    expect(person.bastard).toEqual(false);
+    expect(person.dwarf).toEqual(false);
   });
 
-  it('getSetting: array', async () => {
-    const exampleArray =
-      veresk.getSetting<typeof exampleArraySetting.data[0]>('exampleArray');
+  it('getContent: array', () => {
+    const exampleArray = veresk.getContent<TExampleArray>('exampleArray');
 
     expect(Array.isArray(exampleArray)).toEqual(true);
-    expect(exampleArray.length).toEqual(exampleArraySetting.data.length);
+    expect(exampleArray.length).toEqual(exampleArrayFile.data.length);
   });
 
-  it('getSetting: find', async () => {
-    expect.assertions(1);
+  it('getAsList: find returns undefined when item does not exist', () => {
+    const person = veresk.getAsList<TExampleArray>('exampleArray', {
+      find: { name: 'Unexisted' },
+    });
 
-    try {
-      veresk.getSetting('exampleArray', {
+    expect(person).toBeUndefined();
+  });
+
+  it('getAsListOrThrow: find returns item', () => {
+    const person = veresk.getAsListOrThrow<TExampleArray>('exampleArray', {
+      find: { name: 'John Snow' },
+    });
+
+    expect(person.name).toEqual('John Snow');
+    expect(person.bastard).toEqual(true);
+  });
+
+  it('getAsListOrThrow: find throws when item does not exist', () => {
+    expect(() =>
+      veresk.getAsListOrThrow<TExampleArray>('exampleArray', {
         find: { name: 'Unexisted' },
-      });
-    } catch (err) {
-      expect(
-        (err as Error).message.startsWith(
-          'could not find setting exampleArray with find params',
-        ),
-      ).toBeTruthy();
-    }
+      }),
+    ).toThrow(
+      '(Veresk) could not find item in "exampleArray" with matcher {"name":"Unexisted"}',
+    );
   });
 
-  it('chould not get settings from with not initialized params', async () => {
-    expect.assertions(1);
-    try {
-      veresk.getSetting('exampleArray', { consumer: 'unexisted' });
-    } catch (err) {
-      expect((err as Error).message).toEqual(
-        'could not find setting for default, unexisted',
-      );
-    }
+  it('should not get files with not initialized params', () => {
+    expect(() =>
+      veresk.getAsList<TExampleArray>('exampleArray', {
+        consumer: 'unexisted',
+      }),
+    ).toThrow('could not find file for default, unexisted');
   });
 
-  it('fetchSetting: encrypted setting', async () => {
-    const exampleArray =
-      veresk.getSetting<typeof exampleArraySetting.data[0]>(
-        'encryptedConfig',
-      );
+  it('getContent: encrypted file', () => {
+    const exampleArray = veresk.getContent<TExampleArray>('encryptedConfig');
 
     expect(Array.isArray(exampleArray)).toEqual(true);
-    expect(exampleArray.length).toEqual(exampleArraySetting.data.length);
+    expect(exampleArray.length).toEqual(exampleArrayFile.data.length);
   });
 
-  it('fetchSetting: freeze singleton', async () => {
-    const exampleSingleton = veresk.getSetting<
-      typeof exampleSingletonSetting.data
-    >('exampleSingleton', { type: SettingType.Singleton });
+  it('getContent: freeze singleton', () => {
+    const exampleSingleton =
+      veresk.getContent<typeof exampleSingletonFile.data>('exampleSingleton');
 
     expect.assertions(1);
+
     try {
       exampleSingleton.deepField.name = 'newValue';
     } catch (e) {
@@ -218,11 +238,11 @@ describe('Veresk library', () => {
     }
   });
 
-  it('fetchSetting: freeze array', async () => {
-    const exampleArray =
-      veresk.getSetting<typeof exampleArraySetting.data[0]>('exampleArray');
+  it('getAsList: freeze array', () => {
+    const exampleArray = veresk.getAsList<TExampleArray>('exampleArray');
 
     expect.assertions(1);
+
     try {
       exampleArray[0].name = 'newValue';
     } catch (e) {
@@ -235,14 +255,16 @@ describe('Veresk library', () => {
 
 describe('Veresk library -> fetching with retry', () => {
   let veresk: Veresk;
-  let mock: any;
+  let mock: MockAdapter;
   const options = {
     cdnUrls,
     fetchRetryCount: 0,
     version: 'default',
     consumer: 'common',
     encryptSecret: ENCRYPT_SECRET,
+    log: createLog(),
   };
+
   beforeEach(() => {
     mock = new MockAdapter(axios as any);
     mockConfigs(mock, cdnUrls);
@@ -257,44 +279,46 @@ describe('Veresk library -> fetching with retry', () => {
     done();
   });
 
-  it('fetchSetting 0 retries', async () => {
+  it('fetchContent 0 retries', async () => {
     options.fetchRetryCount = 0;
     veresk = new Veresk(options);
 
     await expect(veresk.init()).rejects.toThrow(
-      /Unhandled error\.\s*\(FetchSettingError:/,
+      /Unhandled error\.\s*\(FetchFileError:/,
     );
     expect(mock.history.get).toHaveLength(5);
   });
 
-  it('fetchSetting 1 retry', async () => {
+  it('fetchContent 1 retry', async () => {
     options.fetchRetryCount = 1;
     veresk = new Veresk(options);
     await veresk.init();
-    const exampleRetry = await veresk.fetchSetting<
-      typeof exampleRetrySetting.data
-    >('exampleRetry', { type: SettingType.Singleton });
+
+    const exampleRetry =
+      veresk.getContent<typeof exampleRetryFile.data>('exampleRetry');
+
     expect(exampleRetry.exampleField).toEqual(
-      exampleRetrySetting.data.exampleField,
+      exampleRetryFile.data.exampleField,
     );
   });
 
-  it('fetchSetting 2 retries', async () => {
+  it('fetchContent 2 retries', async () => {
     options.fetchRetryCount = 2;
     veresk = new Veresk(options);
     await veresk.init();
-    const exampleRetry = await veresk.fetchSetting<
-      typeof exampleRetrySetting.data
-    >('exampleRetry', { type: SettingType.Singleton });
+
+    const exampleRetry =
+      veresk.getContent<typeof exampleRetryFile.data>('exampleRetry');
+
     expect(exampleRetry.exampleField).toEqual(
-      exampleRetrySetting.data.exampleField,
+      exampleRetryFile.data.exampleField,
     );
   });
 });
 
 describe('Veresk library -> manifest reconciliation', () => {
   let veresk: Veresk;
-  let mock: any;
+  let mock: MockAdapter;
 
   beforeEach(async () => {
     mock = new MockAdapter(axios as any);
@@ -305,6 +329,7 @@ describe('Veresk library -> manifest reconciliation', () => {
       version: 'default',
       consumer: 'common',
       encryptSecret: ENCRYPT_SECRET,
+      log: createLog(),
     });
     await veresk.init();
   });
@@ -314,15 +339,15 @@ describe('Veresk library -> manifest reconciliation', () => {
     mock.reset();
   });
 
-  it('removes settings that disappeared from manifest after update', async () => {
+  it('removes files that disappeared from manifest after update', async () => {
     const nextManifest = {
       etag: 'etagManifestV2',
-      data: manifest.data.filter((setting) => setting.name !== 'exampleArray'),
+      data: manifest.data.filter((file) => file.name !== 'exampleArray'),
     };
 
-    expect(
-      veresk.getSetting<typeof exampleArraySetting.data[0]>('exampleArray'),
-    ).toHaveLength(exampleArraySetting.data.length);
+    expect(veresk.getAsList<TExampleArray>('exampleArray')).toHaveLength(
+      exampleArrayFile.data.length,
+    );
 
     mock.resetHandlers();
     mock
@@ -332,32 +357,32 @@ describe('Veresk library -> manifest reconciliation', () => {
       });
     mock
       .onGet(`${cdnUrls[0]}/default/content/exampleRetry`)
-      .reply(200, exampleRetrySetting.data, {
-        etag: exampleRetrySetting.etag,
+      .reply(200, exampleRetryFile.data, {
+        etag: exampleRetryFile.etag,
       });
     mock
       .onGet(`${cdnUrls[0]}/default/content/encryptedConfig`)
       .reply(
         200,
         AES.encrypt(
-          JSON.stringify(exampleArraySetting.data),
+          JSON.stringify(exampleArrayFile.data),
           ENCRYPT_SECRET,
         ).toString(),
         {
-          etag: exampleArraySetting.etag,
+          etag: exampleArrayFile.etag,
         },
       );
 
     await (veresk as any).update();
 
-    expect(() =>
-      veresk.getSetting<typeof exampleArraySetting.data[0]>('exampleArray'),
-    ).toThrow('Unexpected setting with name exampleArray');
+    expect(() => veresk.getAsList<TExampleArray>('exampleArray')).toThrow(
+      'Unexpected file with name exampleArray',
+    );
 
     const manifestInfo = veresk.getManifest('common');
     expect(manifestInfo.etag).toEqual(nextManifest.etag);
     expect(
-      manifestInfo.manifest.find((setting) => setting.name === 'exampleArray'),
+      manifestInfo.manifest.find((file) => file.name === 'exampleArray'),
     ).toBeUndefined();
   });
 });

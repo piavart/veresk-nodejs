@@ -1,12 +1,11 @@
 import { ILog } from '../../interfaces';
 import { Manifest } from '../manifest';
-import { SettingsPackage } from './settings-package';
+import { File } from '../file';
+import { FilesPackage } from './files-package';
 import { cloneValue, setByPath } from '../../utils/matchers';
+import { IFilesPackage } from './files-package.interface';
 
-export class MockSettingsPackage
-  extends SettingsPackage
-  implements SettingsPackage
-{
+export class MockFilesPackage extends FilesPackage implements IFilesPackage {
   private changedSettings: Record<string, any> = {};
 
   constructor(
@@ -33,17 +32,17 @@ export class MockSettingsPackage
   get manifest() {
     return new Manifest('etagManifest', [
       {
-        name: 'settingName',
-        key: '/default/common/json/tag/settingName',
+        name: 'fileName',
+        key: '/default/common/json/tag/fileName',
         size: 10,
-        etag: 'settingEtag',
+        etag: 'fileEtag',
         encrypt: false,
       },
     ]);
   }
 
   get<T = any>(name: string) {
-    return this.getSetting(name) as T;
+    return new File(name, 'mock-etag', this.getSetting(name) as T);
   }
 
   async update() {

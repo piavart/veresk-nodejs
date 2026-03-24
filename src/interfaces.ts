@@ -1,4 +1,4 @@
-import { FetchSettingError, ManifestNotFoundError } from './errors';
+import { FetchFileError, ManifestNotFoundError } from './errors';
 
 export type TVereskOptions = {
   cdnUrls: string[];
@@ -21,12 +21,7 @@ export type TFileManifest = {
 
 export type TManifest = TFileManifest[];
 
-export const enum SettingType {
-  List = 'list',
-  Singleton = 'singleton',
-}
-
-export type TUpdateSettingEventData = {
+export type TUpdateFileEventData = {
   name: string;
   consumer: string;
   etag: string;
@@ -39,7 +34,7 @@ export interface ILog {
   error(...ars: any[]): void;
 }
 
-export type TEmittedVereskError = ManifestNotFoundError | FetchSettingError;
+export type TEmittedVereskError = ManifestNotFoundError | FetchFileError;
 
 export type TManifestFetchedEventData =
   | {

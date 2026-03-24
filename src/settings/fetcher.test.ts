@@ -17,13 +17,17 @@ describe('Fetcher', () => {
     const fetcher = new Fetcher(['http://cdn.example.com'], 100, 0);
     const url = 'http://cdn.example.com/default/content/example';
 
-    mock.onGet(url).replyOnce(500).onGet(url).reply(200, { ok: true }, {
-      etag: 'etagExample',
-    });
-
-    await expect(fetcher.fetchSetting('/default/content/example')).rejects.toThrow(
-      `Fetch setting error: ${url}`,
+    mock.onGet(url).replyOnce(500).onGet(url).reply(
+      200,
+      { ok: true },
+      {
+        etag: 'etagExample',
+      },
     );
+
+    await expect(
+      fetcher.fetchSetting('/default/content/example'),
+    ).rejects.toThrow(`Fetch file error: ${url}`);
     expect(mock.history.get).toHaveLength(1);
   });
 

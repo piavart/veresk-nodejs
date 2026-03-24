@@ -1,19 +1,20 @@
 import { EventName } from '../../constants';
 import {
   TManifestFetchedEventData,
-  TUpdateSettingEventData,
+  TUpdateFileEventData,
 } from '../../interfaces';
+import { File } from '../file';
 import { Manifest } from '../manifest';
 
-export interface ISettingsPackage {
+export interface IFilesPackage {
   manifest: Manifest;
   contentUrls: string[];
-  get<T = any>(name: string): T;
+  get<T = any>(name: string): File<T>;
   update(): Promise<void>;
   reset(): void;
   on(
-    event: typeof EventName.SettingUpdated,
-    listener: (data: TUpdateSettingEventData) => void,
+    event: typeof EventName.FileUpdated,
+    listener: (data: TUpdateFileEventData) => void,
   ): this;
   on(
     event: typeof EventName.ManifestFetched,

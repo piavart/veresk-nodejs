@@ -1,6 +1,6 @@
 {
   "name": "@veresk-tool/nodejs",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Remote configuration and feature flag client for Veresk in Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

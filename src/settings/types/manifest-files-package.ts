@@ -1,8 +1,9 @@
 import { ILog } from '../../interfaces';
+import { File } from '../file';
 import { Manifest } from '../manifest';
-import { SettingsPackage } from './settings-package';
+import { FilesPackage } from './files-package';
 
-export class ManifestSettingsPackage extends SettingsPackage {
+export class ManifestFilesPackage extends FilesPackage {
   constructor(
     cdnUrls: string[],
     fetchRetryCount: number,
@@ -24,9 +25,9 @@ export class ManifestSettingsPackage extends SettingsPackage {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  get<T = any>(_name: string): T {
+  get<T = any>(_name: string): File<T> {
     throw new Error(
-      `settings with ${this.version}, ${this.consumer} should use manifest only`,
+      `files with ${this.version}, ${this.consumer} should use manifest only`,
     );
   }
 

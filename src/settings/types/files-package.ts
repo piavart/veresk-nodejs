@@ -1,3 +1,6 @@
+import { AES, enc } from 'crypto-js';
+import { EventEmitter } from 'events';
+
 import {
   ILog,
   TFileManifest,
@@ -5,19 +8,17 @@ import {
   TManifestFetchedEventData,
 } from '../../interfaces';
 import { Manifest } from '../manifest';
-import { Setting } from '../setting';
-import { ISettingsPackage } from './settings-package.interface';
-import { EventEmitter } from 'events';
-import { ManifestNotFoundError, UnexpectedSettingError } from '../../errors';
-import { AES, enc } from 'crypto-js';
-import { DecryptSettingError } from '../../errors';
+import { File } from '../file';
+import { IFilesPackage } from './files-package.interface';
+import { ManifestNotFoundError, UnexpectedFileError } from '../../errors';
+import { DecryptFileError } from '../../errors';
 import { deepFreeze } from '../../utils/freeze';
 import { EventName } from '../../constants';
 import { Fetcher } from '../fetcher';
 
-export class SettingsPackage extends EventEmitter implements ISettingsPackage {
+export class FilesPackage extends EventEmitter implements IFilesPackage {
   protected _manifest?: Manifest;
-  protected settings = new Map<string, Setting>();
+  protected files = new Map<string, File>();
   protected readonly logMarker: string;
   protected readonly fetcher: Fetcher;
 
@@ -52,13 +53,13 @@ export class SettingsPackage extends EventEmitter implements ISettingsPackage {
   }
 
   get<T = any>(name: string) {
-    const setting = this.settings.get(name);
+    const file = this.files.get(name) as File<T> | undefined;
 
-    if (!setting) {
-      throw new UnexpectedSettingError(name);
+    if (!file) {
+      throw new UnexpectedFileError(name);
     }
 
-    return setting.data as T;
+    return file;
   }
 
   async update() {
@@ -68,8 +69,8 @@ export class SettingsPackage extends EventEmitter implements ISettingsPackage {
       return;
     }
 
-    await this.updateSettings(this.getChangedSettings(manifest));
-    this.cleanupRemovedSettings(manifest);
+    await this.updateFiles(this.getChangedFiles(manifest));
+    this.cleanupRemovedFiles(manifest);
     this._manifest = new Manifest(etag, manifest);
 
     this.log.log(
@@ -86,41 +87,38 @@ export class SettingsPackage extends EventEmitter implements ISettingsPackage {
     this.removeAllListeners();
   }
 
-  protected getChangedSettings(manifest: TManifest) {
+  protected getChangedFiles(manifest: TManifest) {
     return manifest.filter(
-      (settingManifest) =>
-        settingManifest.etag !== this.settings.get(settingManifest.name)?.etag,
+      (file) => file.etag !== this.files.get(file.name)?.etag,
     );
   }
 
-  protected cleanupRemovedSettings(manifest: TManifest) {
-    const activeSettings = new Set(manifest.map((setting) => setting.name));
-    const removedSettings = Array.from(this.settings.keys()).filter(
-      (name) => !activeSettings.has(name),
+  protected cleanupRemovedFiles(manifest: TManifest) {
+    const activeFiles = new Set(manifest.map((file) => file.name));
+    const removedFiles = Array.from(this.files.keys()).filter(
+      (name) => !activeFiles.has(name),
     );
 
-    removedSettings.forEach((name) => {
-      this.settings.delete(name);
+    removedFiles.forEach((name) => {
+      this.files.delete(name);
     });
 
-    if (removedSettings.length) {
+    if (removedFiles.length) {
       this.log.log(
-        `Removed stale settings for ${this.consumer}: ${removedSettings.join(
-          ', ',
-        )}`,
+        `Removed stale files for ${this.consumer}: ${removedFiles.join(', ')}`,
         this.logMarker,
       );
     }
   }
 
-  protected async updateSettings(settingsManifests: TFileManifest[]) {
-    const settings = await Promise.all(
-      settingsManifests.map((setting) => this.fetchSetting(setting)),
+  protected async updateFiles(manifests: TFileManifest[]) {
+    const files = await Promise.all(
+      manifests.map((file) => this.fetchFile(file)),
     );
 
-    for (const { name, etag, data } of settings) {
-      this.settings.set(name, new Setting(name, etag, data));
-      this.emit(EventName.SettingUpdated, {
+    for (const { name, etag, data } of files) {
+      this.files.set(name, new File(name, etag, data));
+      this.emit(EventName.FileUpdated, {
         name,
         consumer: this.consumer,
         etag,
@@ -131,20 +129,20 @@ export class SettingsPackage extends EventEmitter implements ISettingsPackage {
     this.log.log(`Package ${this.consumer} updated`, this.logMarker);
   }
 
-  protected async fetchSetting(settingManifest: TFileManifest) {
-    const result = await this.fetcher.fetchSetting(settingManifest.key);
+  protected async fetchFile(fileManifest: TFileManifest) {
+    const result = await this.fetcher.fetchSetting(fileManifest.key);
 
-    if (settingManifest.encrypt) {
+    if (fileManifest.encrypt) {
       try {
         const bytes = AES.decrypt(result.data as string, this.encryptSecret);
         result.data = JSON.parse(bytes.toString(enc.Utf8));
       } catch (err: any) {
-        throw new DecryptSettingError(settingManifest.name, err.stack);
+        throw new DecryptFileError(fileManifest.name, err.stack);
       }
     }
 
     return {
-      name: settingManifest.name,
+      name: fileManifest.name,
       etag: result.etag,
       data: deepFreeze(result.data),
     };
